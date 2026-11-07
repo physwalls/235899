@@ -4,7 +4,6 @@
   padding: 0;
 }
 
-/* dark mode */
 body {
   background-color: #1e1e24;
   color: white;
@@ -49,10 +48,9 @@ p {
   display: flex;
 }
 
+/* le quitamos las medidas fijas para que react las controle desde el html */
 .celda {
-  width: 45px;
-  height: 45px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid rgba(217, 217, 217, 0.3);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -64,30 +62,26 @@ p {
   background-color: #cccccc;
 }
 
-/* color de los muros*/
 .pared {
   background-color: #2b2d42;
   border: 1px solid #1e1e24;
   cursor: not-allowed;
 }
 
-/* animacion del camino */
 .camino {
   background-color: #ff9f1c;
   animation: aparecer 0.2s ease-out;
 }
 
-/* pixelarts */
 .sprite {
-  width: 85%;
-  height: 85%;
+  width: 90%;
+  height: 90%;
   object-fit: contain;
   image-rendering: pixelated;
   z-index: 10;
   position: relative;
 }
 
-/* dulce flotando */
 .animacion-flotar {
   animation: flotar 1.5s ease-in-out infinite;
 }
@@ -104,7 +98,6 @@ p {
   }
 }
 
-/* animacion para el rastro naranja */
 @keyframes aparecer {
   from {
     transform: scale(0);
