@@ -5,7 +5,6 @@ import imgProfe from "./assets/bretagod.png";
 import imgDulce from "./assets/pokedulce.png";
 
 function App() {
-  // ahora el tamano cambia segun el nivel
   const [tamano, setTamano] = useState(10);
   const [inicio, setInicio] = useState([0, 0]);
   const [meta, setMeta] = useState([9, 9]);
@@ -39,7 +38,7 @@ function App() {
     // ajustamos tamano y probabilidad segun el boton
     if (dificultad === "manual") {
       setParedes([]);
-      return; // en manual respetamos el tamano actual
+      return;
     } else if (dificultad === "facil") {
       nuevoTamano = 10;
       probabilidad = 0.15;
@@ -48,24 +47,73 @@ function App() {
       probabilidad = 0.25;
     } else if (dificultad === "iit") {
       nuevoTamano = 50;
-      probabilidad = 0.35; // nivel dios, 2500 celdas y un monton de muros
+      probabilidad = 0.35;
     }
 
     setTamano(nuevoTamano);
     setInicio([0, 0]);
     setMeta([nuevoTamano - 1, nuevoTamano - 1]);
 
-    let nuevasParedes = [];
-    for (let i = 0; i < nuevoTamano; i++) {
-      for (let j = 0; j < nuevoTamano; j++) {
-        if (
-          (i === 0 && j === 0) ||
-          (i === nuevoTamano - 1 && j === nuevoTamano - 1)
-        )
-          continue;
-        if (Math.random() < probabilidad) nuevasParedes.push([i, j]);
+    // [NUEVO]: funcion rapida para asegurar que el mapa generado si tenga solucion
+    const mapaTieneSolucion = (paredesPrueba) => {
+      let gridTest = Array(nuevoTamano)
+        .fill()
+        .map(() => Array(nuevoTamano).fill(0));
+      paredesPrueba.forEach((p) => {
+        gridTest[p[0]][p[1]] = 1;
+      });
+      let visitados = Array(nuevoTamano)
+        .fill()
+        .map(() => Array(nuevoTamano).fill(false));
+      let cola = [[0, 0]];
+      visitados[0][0] = true;
+
+      while (cola.length > 0) {
+        let [r, c] = cola.shift();
+        if (r === nuevoTamano - 1 && c === nuevoTamano - 1) return true; // si hay camino a la meta
+
+        const vecinos = [
+          [r - 1, c],
+          [r + 1, c],
+          [r, c - 1],
+          [r, c + 1],
+        ];
+        for (let [vr, vc] of vecinos) {
+          if (
+            vr >= 0 &&
+            vr < nuevoTamano &&
+            vc >= 0 &&
+            vc < nuevoTamano &&
+            gridTest[vr][vc] === 0 &&
+            !visitados[vr][vc]
+          ) {
+            visitados[vr][vc] = true;
+            cola.push([vr, vc]);
+          }
+        }
       }
+      return false; // esta tapado por completo
+    };
+
+    let esValido = false;
+    let nuevasParedes = [];
+
+    // [NUEVO]: seguimos generando mapas en milisegundos hasta que salga uno que si se pueda resolver
+    while (!esValido) {
+      nuevasParedes = [];
+      for (let i = 0; i < nuevoTamano; i++) {
+        for (let j = 0; j < nuevoTamano; j++) {
+          if (
+            (i === 0 && j === 0) ||
+            (i === nuevoTamano - 1 && j === nuevoTamano - 1)
+          )
+            continue;
+          if (Math.random() < probabilidad) nuevasParedes.push([i, j]);
+        }
+      }
+      esValido = mapaTieneSolucion(nuevasParedes);
     }
+
     setParedes(nuevasParedes);
   };
 
@@ -121,8 +169,8 @@ function App() {
 
   const renderGrid = () => {
     let gridJSX = [];
-    // calculamos los pixeles exactos para que el tablero siempre mida 500px de ancho total
-    const pixelesCelda = 500 / tamano;
+    // [NUEVO]: tamanos de pixeles fijos y decentes para que no se vean miniatura
+    const pixelesCelda = tamano === 10 ? 45 : tamano === 20 ? 30 : 20;
 
     for (let i = 0; i < tamano; i++) {
       let fila = [];
@@ -137,7 +185,11 @@ function App() {
             key={`${i}-${j}`}
             onClick={() => clickCelda(i, j)}
             className={`celda ${esPared ? "pared" : ""} ${esCamino && !esInicio && !esMeta ? "camino" : ""}`}
-            style={{ width: `${pixelesCelda}px`, height: `${pixelesCelda}px` }}
+            style={{
+              width: `${pixelesCelda}px`,
+              height: `${pixelesCelda}px`,
+              minWidth: `${pixelesCelda}px`,
+            }}
           >
             {/* etiquetas img para el profe y el dulce */}
             {esInicio && <img src={imgProfe} className="sprite" alt="profe" />}
@@ -196,9 +248,9 @@ function App() {
         </button>
       </div>
 
-      {/* forzamos el tablero a 500px para que los cuadritos se ajusten dentro */}
-      <div className="tablero" style={{ width: "500px", height: "500px" }}>
-        {renderGrid()}
+      {/* [NUEVO]: le quitamos la camisa de fuerza de los 500px */}
+      <div className="tablero-wrapper">
+        <div className="tablero">{renderGrid()}</div>
       </div>
 
       <div className="controles" style={{ marginTop: "20px" }}>
@@ -229,7 +281,7 @@ function App() {
           }}
         >
           <h3 style={{ color: "#ff9f1c", margin: "0 0 10px 0" }}>
-            ⚡ reporte de ejecucion
+            reporte de ejecucion
           </h3>
           <p style={{ margin: "5px 0" }}>
             <strong>tamaño de matriz:</strong> {tamano}x{tamano} (
