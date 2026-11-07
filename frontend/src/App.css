@@ -1,91 +1,157 @@
-.contenedor {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  padding: 20px;
-  background-color: #1a1a1a;
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* dark mode */
+body {
+  background-color: #1e1e24;
   color: white;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   min-height: 100vh;
 }
 
+.contenedor {
+  text-align: center;
+  background: #2b2d42;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+h1 {
+  color: #8d99ae;
+  margin-bottom: 5px;
+  font-size: 2.5rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+p {
+  margin-bottom: 20px;
+  color: #edf2f4;
+}
+
 .tablero {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  background-color: #333;
-  padding: 5px;
+  display: inline-block;
+  border: 4px solid #8d99ae;
+  background-color: #edf2f4;
+  margin-bottom: 20px;
   border-radius: 8px;
-  margin: 20px 0;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
 .fila {
   display: flex;
-  gap: 2px;
 }
 
 .celda {
   width: 45px;
   height: 45px;
-  background-color: #f0f0f0;
+  border: 1px solid #d9d9d9;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 24px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
-}
-
-.celda:hover {
-  background-color: #d1d1d1;
-}
-
-/* Estado visual de las celdas */
-.obstaculo {
-  background-color: #444 !important;
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
-}
-
-.inicio {
-  background-color: #4caf50 !important; /* Verde */
-}
-
-.meta {
-  background-color: #ff9800 !important; /* Naranja */
-}
-
-.ruta {
-  background-color: #2196f3 !important; /* Azul */
-  animation: brillar 0.5s ease-in-out forwards;
-}
-
-@keyframes brillar {
-  0% {
-    transform: scale(0.8);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-.btn-calcular {
-  padding: 12px 24px;
-  font-size: 18px;
-  background-color: #e91e63;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-  text-transform: uppercase;
   transition: background-color 0.2s;
 }
 
-.btn-calcular:hover {
-  background-color: #c2185b;
+.celda:hover {
+  background-color: #cccccc;
+}
+
+/* color de los muros*/
+.pared {
+  background-color: #2b2d42;
+  border: 1px solid #1e1e24;
+  cursor: not-allowed;
+}
+
+/* animacion del camino */
+.camino {
+  background-color: #ff9f1c;
+  animation: aparecer 0.2s ease-out;
+}
+
+/* pixelarts */
+.sprite {
+  width: 85%;
+  height: 85%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  z-index: 10;
+  position: relative;
+}
+
+/* dulce flotando */
+.animacion-flotar {
+  animation: flotar 1.5s ease-in-out infinite;
+}
+
+@keyframes flotar {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+/* animacion para el rastro naranja */
+@keyframes aparecer {
+  from {
+    transform: scale(0);
+    border-radius: 50%;
+  }
+  to {
+    transform: scale(1);
+    border-radius: 0;
+  }
+}
+
+.controles {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+button {
+  background-color: #ef233c;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  font-size: 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition:
+    transform 0.1s,
+    background-color 0.2s;
+}
+
+button:hover:not(:disabled) {
+  background-color: #d90429;
   transform: translateY(-2px);
+}
+
+button:disabled {
+  background-color: #555;
+  color: #888;
+  cursor: wait;
+  transform: none;
+}
+
+button.reset {
+  background-color: #8d99ae;
+}
+
+button.reset:hover {
+  background-color: #2b2d42;
 }
