@@ -1,14 +1,21 @@
 import { useState } from "react";
 import "./App.css";
-// importamos sprites desde la carpeta assets
+// importacion de assets
 import imgProfe from "./assets/bretagod.png";
 import imgDulce from "./assets/pokedulce.png";
+import imgCafe from "./assets/cafecito.png";
+import imgPared from "./assets/pared.jpg";
+import imgLodo from "./assets/lodito.jpg";
 
 function App() {
   const [tamano, setTamano] = useState(10);
   const [inicio, setInicio] = useState([0, 0]);
   const [meta, setMeta] = useState([9, 9]);
+  const [cafe, setCafe] = useState([4, 4]);
+
   const [paredes, setParedes] = useState([]);
+  const [lodo, setLodo] = useState([]);
+  const [herramienta, setHerramienta] = useState("pared");
   const [cargando, setCargando] = useState(false);
 
   // animaciones y metricas
@@ -19,7 +26,7 @@ function App() {
   const animarPasos = (rutaCompleta) => {
     setRutaAnimada([]);
     rutaCompleta.forEach((paso, index) => {
-      // si el mapa es de 50x50, le metemos turbo a la animacion para no esperar mil anos
+      // turbo de renderizado en matrices grandes
       const velocidad = rutaCompleta.length > 100 ? 10 : 100;
       setTimeout(() => {
         setRutaAnimada((rutaActual) => [...rutaActual, paso]);
@@ -27,15 +34,16 @@ function App() {
     });
   };
 
-  // laberintos aleatorios y uno en blanco por si queremos personalizar
+  // generacion aleatoria y modo manual
   const generarNivel = (dificultad) => {
     setRutaAnimada([]);
     setMetricas(null);
+    setLodo([]);
 
     let nuevoTamano = tamano;
     let probabilidad = 0.15;
 
-    // ajustamos tamano y probabilidad segun el boton
+    // configuracion de variables por dificultad
     if (dificultad === "manual") {
       setParedes([]);
       return;
@@ -54,8 +62,14 @@ function App() {
     setInicio([0, 0]);
     setMeta([nuevoTamano - 1, nuevoTamano - 1]);
 
-    // [NUEVO]: funcion rapida para asegurar que el mapa generado si tenga solucion
-    const mapaTieneSolucion = (paredesPrueba) => {
+    // calculo del checkpoint central
+    let centro = Math.floor(nuevoTamano / 2);
+    let metaTemp = [nuevoTamano - 1, nuevoTamano - 1];
+    let cafeTemp = [centro, centro];
+    setCafe(cafeTemp);
+
+    // validacion bfs para solvencia del mapa
+    const bfs = (origen, destino, paredesPrueba) => {
       let gridTest = Array(nuevoTamano)
         .fill()
         .map(() => Array(nuevoTamano).fill(0));
@@ -65,12 +79,12 @@ function App() {
       let visitados = Array(nuevoTamano)
         .fill()
         .map(() => Array(nuevoTamano).fill(false));
-      let cola = [[0, 0]];
-      visitados[0][0] = true;
+      let cola = [origen];
+      visitados[origen[0]][origen[1]] = true;
 
       while (cola.length > 0) {
         let [r, c] = cola.shift();
-        if (r === nuevoTamano - 1 && c === nuevoTamano - 1) return true; // si hay camino a la meta
+        if (r === destino[0] && c === destino[1]) return true;
 
         const vecinos = [
           [r - 1, c],
@@ -92,26 +106,29 @@ function App() {
           }
         }
       }
-      return false; // esta tapado por completo
+      return false;
     };
 
     let esValido = false;
     let nuevasParedes = [];
 
-    // [NUEVO]: seguimos generando mapas en milisegundos hasta que salga uno que si se pueda resolver
+    // regeneracion iterativa hasta obtener solucion completa
     while (!esValido) {
       nuevasParedes = [];
       for (let i = 0; i < nuevoTamano; i++) {
         for (let j = 0; j < nuevoTamano; j++) {
           if (
             (i === 0 && j === 0) ||
-            (i === nuevoTamano - 1 && j === nuevoTamano - 1)
+            (i === metaTemp[0] && j === metaTemp[1]) ||
+            (i === cafeTemp[0] && j === cafeTemp[1])
           )
             continue;
           if (Math.random() < probabilidad) nuevasParedes.push([i, j]);
         }
       }
-      esValido = mapaTieneSolucion(nuevasParedes);
+      let llegaAlCafe = bfs([0, 0], cafeTemp, nuevasParedes);
+      let llegaAlDulce = bfs(cafeTemp, metaTemp, nuevasParedes);
+      esValido = llegaAlCafe && llegaAlDulce;
     }
 
     setParedes(nuevasParedes);
@@ -123,17 +140,21 @@ function App() {
     const tiempoInicio = performance.now();
 
     try {
+      // 0 es libre, 1 es pared, 2 es lodo
       let grid = Array(tamano)
         .fill()
         .map(() => Array(tamano).fill(0));
       paredes.forEach((p) => {
         grid[p[0]][p[1]] = 1;
       });
+      lodo.forEach((p) => {
+        grid[p[0]][p[1]] = 2;
+      });
 
       const response = await fetch("http://localhost:8000/calcular-ruta", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grid, inicio, meta }),
+        body: JSON.stringify({ grid, inicio, meta, cafe }),
       });
 
       const data = await response.json();
@@ -142,13 +163,27 @@ function App() {
 
       if (data.ruta && data.ruta.length > 0) {
         animarPasos(data.ruta);
-        setMetricas({ tiempo: tiempoTotal, pasos: data.ruta.length });
+
+        // calculo metrico del recorrido final
+        let costoReal = 0;
+        data.ruta.forEach((paso) => {
+          const esPasoLodo = lodo.some(
+            (l) => l[0] === paso[0] && l[1] === paso[1],
+          );
+          costoReal += esPasoLodo ? 5 : 1;
+        });
+
+        setMetricas({
+          tiempo: tiempoTotal,
+          pasos: data.ruta.length,
+          costo: costoReal,
+        });
       } else {
-        alert("¡el laberinto no tiene solucion! bloqueaste todos los caminos.");
+        alert("El laberinto no tiene solución. Revisa los obstáculos.");
       }
     } catch (error) {
       console.error("error:", error);
-      alert("prende el server de python pa que jale");
+      alert("Error de conexión. Asegúrate de encender el servidor de Python.");
     }
     setCargando(false);
   };
@@ -156,20 +191,32 @@ function App() {
   const clickCelda = (i, j) => {
     if (
       (i === inicio[0] && j === inicio[1]) ||
-      (i === meta[0] && j === meta[1])
+      (i === meta[0] && j === meta[1]) ||
+      (i === cafe[0] && j === cafe[1])
     )
       return;
+
     const esPared = paredes.some((p) => p[0] === i && p[1] === j);
-    if (esPared) {
-      setParedes(paredes.filter((p) => p[0] !== i || p[1] !== j));
-    } else {
-      setParedes([...paredes, [i, j]]);
+    const esLodo = lodo.some((p) => p[0] === i && p[1] === j);
+
+    // limpia celda
+    let nuevasParedes = paredes.filter((p) => p[0] !== i || p[1] !== j);
+    let nuevoLodo = lodo.filter((p) => p[0] !== i || p[1] !== j);
+
+    // aplica terreno activo
+    if (herramienta === "pared" && !esPared) {
+      nuevasParedes.push([i, j]);
+    } else if (herramienta === "lodo" && !esLodo) {
+      nuevoLodo.push([i, j]);
     }
+
+    setParedes(nuevasParedes);
+    setLodo(nuevoLodo);
   };
 
   const renderGrid = () => {
     let gridJSX = [];
-    // [NUEVO]: tamanos de pixeles fijos y decentes para que no se vean miniatura
+    // escalado responsivo del grid
     const pixelesCelda = tamano === 10 ? 45 : tamano === 20 ? 30 : 20;
 
     for (let i = 0; i < tamano; i++) {
@@ -177,27 +224,58 @@ function App() {
       for (let j = 0; j < tamano; j++) {
         const esInicio = i === inicio[0] && j === inicio[1];
         const esMeta = i === meta[0] && j === meta[1];
+        const esCafe = i === cafe[0] && j === cafe[1];
+
         const esPared = paredes.some((p) => p[0] === i && p[1] === j);
+        const esLodo = lodo.some((p) => p[0] === i && p[1] === j);
         const esCamino = rutaAnimada.some((p) => p[0] === i && p[1] === j);
+
+        let claseCelda = "celda ";
+        if (esPared) claseCelda += "pared ";
+        if (esLodo) claseCelda += "lodo ";
+        if (esCamino && !esInicio && !esMeta && !esCafe)
+          claseCelda += "camino ";
+
+        let bgImage = "none";
+        if (esPared) bgImage = `url(${imgPared})`;
+        if (esLodo) bgImage = `url(${imgLodo})`;
 
         fila.push(
           <div
             key={`${i}-${j}`}
             onClick={() => clickCelda(i, j)}
-            className={`celda ${esPared ? "pared" : ""} ${esCamino && !esInicio && !esMeta ? "camino" : ""}`}
+            className={claseCelda}
             style={{
               width: `${pixelesCelda}px`,
               height: `${pixelesCelda}px`,
               minWidth: `${pixelesCelda}px`,
+              backgroundImage: bgImage,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
             }}
           >
-            {/* etiquetas img para el profe y el dulce */}
-            {esInicio && <img src={imgProfe} className="sprite" alt="profe" />}
+            {esInicio && (
+              <img
+                src={imgProfe}
+                className="sprite"
+                alt="profe"
+                style={{ transform: "scale(1.4)" }}
+              />
+            )}
+            {esCafe && (
+              <img
+                src={imgCafe}
+                className="sprite animacion-flotar"
+                alt="cafe"
+                style={{ transform: "scale(0.8)" }}
+              />
+            )}
             {esMeta && (
               <img
                 src={imgDulce}
                 className="sprite animacion-flotar"
                 alt="dulce"
+                style={{ transform: "scale(1.3)" }}
               />
             )}
           </div>,
@@ -214,85 +292,131 @@ function App() {
 
   return (
     <div className="contenedor">
-      <h1>operacion dulce</h1>
-      <p>simulador heuristico A*</p>
+      <div className="cabecera">
+        <h1>Operación Pokedulce</h1>
+        <p className="subtitulo">
+          Simulador Heurístico A* (Grafos con costo y checkpoints)
+        </p>
+        <p className="autor">Hecho por Ingrid Morales Romo</p>
+      </div>
 
-      {/* botones para los niveles generados al azar */}
-      <div
-        className="niveles-panel"
-        style={{
-          marginBottom: "20px",
-          display: "flex",
-          gap: "10px",
-          justifyContent: "center",
-          flexWrap: "wrap",
-        }}
-      >
+      {/* nuevo bloque de contexto y lore */}
+      <div className="instrucciones" style={{ marginBottom: "15px" }}>
+        <h3 style={{ color: "#ff9f1c", marginBottom: "10px" }}>
+          Contexto de la Misión
+        </h3>
+        <p style={{ marginBottom: "10px", lineHeight: "1.5" }}>
+          El profesor Bretagod necesita llegar urgentemente a su preciado
+          Pokedulce. Sin embargo, la jornada en el IIT es pesada y es un
+          requisito obligatorio hacer una parada técnica por un café antes de
+          llegar a su destino final.
+        </p>
+        <p style={{ margin: 0, lineHeight: "1.5", color: "#e9c46a" }}>
+          <strong>¿Cómo calculamos la ruta?</strong> El simulador utiliza el
+          algoritmo <strong>A* (A-Estrella)</strong> en un enrutamiento
+          multietapa. El sistema evalúa los caminos calculando el costo real de
+          movimiento (esquivando paredes y penalizando terrenos pesados como el
+          lodo) sumado a la distancia estimada (heurística de Manhattan) hacia
+          el objetivo.
+        </p>
+      </div>
+
+      <div className="instrucciones">
+        <h3>Instrucciones de Uso:</h3>
+        <ul>
+          <li>
+            1. Selecciona un nivel predeterminado o utiliza el lienzo en blanco.
+          </li>
+          <li>
+            2. Dibuja con los pinceles paredes (bloqueo total) o lodo (terreno
+            pesado que multiplica el costo por 5).
+          </li>
+          <li>
+            <strong>Objetivo:</strong> El algoritmo trazará la ruta óptima desde
+            el punto de inicio hacia el café, y finalmente hacia la meta.
+          </li>
+        </ul>
+      </div>
+
+      <div className="herramientas">
         <button
-          style={{ backgroundColor: "#4a4e69" }}
-          onClick={() => generarNivel("manual")}
+          className={herramienta === "pared" ? "btn-activo" : "btn-inactivo"}
+          onClick={() => setHerramienta("pared")}
         >
-          lienzo en blanco
-        </button>
-        <button className="reset" onClick={() => generarNivel("facil")}>
-          nivel facil (10x10)
-        </button>
-        <button className="reset" onClick={() => generarNivel("medio")}>
-          nivel medio (20x20)
+          Pincel de Pared
         </button>
         <button
-          style={{ backgroundColor: "#ff0033" }}
-          onClick={() => generarNivel("iit")}
+          className={
+            herramienta === "lodo" ? "btn-activo-lodo" : "btn-inactivo"
+          }
+          onClick={() => setHerramienta("lodo")}
         >
-          nivel dios (50x50)
+          Pincel de Lodo (Costo +5)
         </button>
       </div>
 
-      {/* [NUEVO]: le quitamos la camisa de fuerza de los 500px */}
+      <div className="niveles-panel">
+        <button className="btn-nivel" onClick={() => generarNivel("manual")}>
+          Lienzo en Blanco
+        </button>
+        <button className="btn-nivel" onClick={() => generarNivel("facil")}>
+          Nivel Fácil (10x10)
+        </button>
+        <button className="btn-nivel" onClick={() => generarNivel("medio")}>
+          Nivel Medio (20x20)
+        </button>
+        <button
+          className="btn-nivel btn-dios"
+          onClick={() => generarNivel("iit")}
+        >
+          Nivel Dios (50x50)
+        </button>
+      </div>
+
       <div className="tablero-wrapper">
         <div className="tablero">{renderGrid()}</div>
       </div>
 
-      <div className="controles" style={{ marginTop: "20px" }}>
-        <button onClick={resolverLaberinto} disabled={cargando}>
-          {cargando ? "procesando..." : "ejecutar algoritmo A*"}
+      <div className="controles">
+        <button
+          className="btn-accion"
+          onClick={resolverLaberinto}
+          disabled={cargando}
+        >
+          {cargando ? "Procesando..." : "Ejecutar Algoritmo A*"}
         </button>
         <button
-          className="reset"
+          className="btn-accion btn-borrar"
           onClick={() => {
             setParedes([]);
+            setLodo([]);
             setRutaAnimada([]);
             setMetricas(null);
           }}
         >
-          borrar todo
+          Borrar Todo
         </button>
       </div>
 
-      {/* panel de telemetria al final */}
       {metricas && (
-        <div
-          style={{
-            marginTop: "20px",
-            padding: "15px",
-            background: "#1e1e24",
-            borderRadius: "8px",
-            border: "1px solid #8d99ae",
-          }}
-        >
-          <h3 style={{ color: "#ff9f1c", margin: "0 0 10px 0" }}>
-            reporte de ejecucion
-          </h3>
-          <p style={{ margin: "5px 0" }}>
-            <strong>tamaño de matriz:</strong> {tamano}x{tamano} (
-            {tamano * tamano} nodos)
-          </p>
-          <p style={{ margin: "5px 0" }}>
-            <strong>tiempo de respuesta:</strong> {metricas.tiempo} ms
-          </p>
-          <p style={{ margin: "5px 0" }}>
-            <strong>nodos en ruta optima:</strong> {metricas.pasos} pasos
-          </p>
+        <div className="panel-telemetria">
+          <h3>Reporte de Ejecución</h3>
+          <div className="metricas-grid">
+            <p>
+              <strong>Tamaño de Matriz:</strong> {tamano}x{tamano} (
+              {tamano * tamano} nodos)
+            </p>
+            <p>
+              <strong>Tiempo de Respuesta:</strong> {metricas.tiempo} ms
+            </p>
+            <p>
+              <strong>Nodos Visitados:</strong> {metricas.pasos} pasos
+            </p>
+            <p className="metrica-destacada">
+              <strong>Costo Total del Trayecto:</strong> {metricas.costo}{" "}
+              unidades
+            </p>
+          </div>
         </div>
       )}
     </div>

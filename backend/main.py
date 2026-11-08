@@ -5,26 +5,27 @@ import heapq
 
 app = FastAPI()
 
-# CORS para que React pueda comunicarse con Python sin errores
+# configuracion cors para frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # En producción se restringe, pero para desarrollo está bien
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Estructura de los datos que React nos va a enviar
+# definicion del payload con punto de control
 class DatosMapa(BaseModel):
     grid: list[list[int]]
     inicio: list[int]
     meta: list[int]
+    cafe: list[int] 
 
-# Distancia Manhattan
+# distancia manhattan
 def distancia_manhattan(origen, destino):
     return abs(origen[0] - destino[0]) + abs(origen[1] - destino[1])
 
-# Algoritmo A*
+# heuristica a*
 def algoritmo_a_star(grid, inicio, meta):
     filas = len(grid)
     columnas = len(grid[0])
@@ -47,18 +48,20 @@ def algoritmo_a_star(grid, inicio, meta):
             return ruta[::-1]
             
         vecinos = [
-            (current[0] - 1, current[1]), # Arriba
-            (current[0] + 1, current[1]), # Abajo
-            (current[0], current[1] - 1), # Izquierda
-            (current[0], current[1] + 1)  # Derecha
+            (current[0] - 1, current[1]),
+            (current[0] + 1, current[1]),
+            (current[0], current[1] - 1),
+            (current[0], current[1] + 1) 
         ]
         
         for v in vecinos:
             if 0 <= v[0] < filas and 0 <= v[1] < columnas:
-                if grid[v[0]][v[1]] == 1: # Si es obstáculo, lo ignoramos
+                if grid[v[0]][v[1]] == 1: # ignorar paredes
                     continue
                     
-                tentative_g_score = g_score[current] + 1
+                # pesos del grafo ponderado
+                costo_movimiento = 5 if grid[v[0]][v[1]] == 2 else 1
+                tentative_g_score = g_score[current] + costo_movimiento
                 
                 if v not in g_score or tentative_g_score < g_score[v]:
                     came_from[v] = current
@@ -68,10 +71,22 @@ def algoritmo_a_star(grid, inicio, meta):
                     if not any(v == item[1] for item in open_set):
                         heapq.heappush(open_set, (f_score[v], v))
                         
-    return [] # Retorna lista vacia si no hay ruta
+    return []
 
-# Endpoint que React va a consumir
+# endpoint de enrutamiento multietapa
 @app.post("/calcular-ruta")
 def calcular_ruta(datos: DatosMapa):
-    ruta_optima = algoritmo_a_star(datos.grid, datos.inicio, datos.meta)
-    return {"ruta": ruta_optima}
+    # fase 1: sub-ruta inicial
+    ruta_al_cafe = algoritmo_a_star(datos.grid, datos.inicio, datos.cafe)
+    if not ruta_al_cafe:
+        return {"ruta": []}
+        
+    # fase 2: sub-ruta final
+    ruta_a_la_meta = algoritmo_a_star(datos.grid, datos.cafe, datos.meta)
+    if not ruta_a_la_meta:
+        return {"ruta": []} 
+        
+    # union de sub-rutas eliminando el nodo duplicado
+    ruta_completa = ruta_al_cafe + ruta_a_la_meta[1:]
+    
+    return {"ruta": ruta_completa}

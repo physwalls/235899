@@ -4,46 +4,151 @@
   padding: 0;
 }
 
+#root {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 body {
   background-color: #1e1e24;
-  color: white;
+  color: #edf2f4;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
+  padding: 20px;
 }
 
 .contenedor {
   text-align: center;
   background: #2b2d42;
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  max-width: 95vw; /* para que el contenedor general no se desborde */
+  padding: 2.5rem;
+  border-radius: 4px; /* bordes mas rigidos para estetica pixel */
+  border: 4px solid #8d99ae;
+  box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.4);
+  max-width: 100%;
+  width: 900px;
+}
+
+.cabecera {
+  margin-bottom: 20px;
 }
 
 h1 {
-  color: #8d99ae;
-  margin-bottom: 5px;
+  color: #fff;
   font-size: 2.5rem;
   text-transform: uppercase;
   letter-spacing: 2px;
+  text-shadow: 2px 2px 0px #ef233c; /* toque retro */
 }
 
-p {
+.subtitulo {
+  color: #8d99ae;
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+.autor {
+  color: #8d99ae;
+  margin-top: 5px;
+}
+
+.instrucciones {
+  background-color: rgba(30, 30, 36, 0.7);
+  border: 2px dashed #8d99ae;
+  padding: 15px;
   margin-bottom: 20px;
-  color: #edf2f4;
+  text-align: left;
+  font-size: 0.9rem;
 }
 
-/* [NUEVO]: esta clase envuelve al tablero y maneja la barra de desplazamiento */
+.instrucciones h3 {
+  color: #ff9f1c;
+  margin-bottom: 10px;
+}
+
+.instrucciones ul {
+  list-style-type: none;
+  padding-left: 5px;
+}
+
+.instrucciones li {
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+/* contenedores flex para controles */
+.herramientas,
+.niveles-panel,
+.controles {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+/* estetica pixel/bloque para todos los botones */
+button {
+  color: white;
+  border: 2px solid #1e1e24;
+  padding: 10px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: bold;
+  text-transform: uppercase;
+  box-shadow: 4px 4px 0px #1e1e24;
+  transition: all 0.1s;
+}
+
+button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px #1e1e24;
+}
+
+button:disabled {
+  background-color: #555 !important;
+  color: #888;
+  cursor: wait;
+  box-shadow: none;
+  transform: none;
+}
+
+/* variantes de colores para botones */
+.btn-activo {
+  background-color: #8d99ae;
+}
+.btn-activo-lodo {
+  background-color: #9c6644;
+}
+.btn-inactivo {
+  background-color: #4a4e69;
+}
+.btn-nivel {
+  background-color: #4a4e69;
+}
+.btn-dios {
+  background-color: #ef233c;
+}
+.btn-accion {
+  background-color: #ff9f1c;
+  color: #1e1e24;
+}
+.btn-borrar {
+  background-color: #8d99ae;
+  color: #fff;
+}
+
+/* wrapper con limites responsivos */
 .tablero-wrapper {
-  max-width: 80vw; /* ancho maximo del tablero antes de activar el scroll */
-  max-height: 55vh; /* alto maximo del tablero antes de activar el scroll */
-  overflow: auto; /* esto activa las barras para moverse arriba/abajo/lados */
-  margin: 0 auto;
+  max-width: 100%;
+  max-height: 55vh;
+  overflow: auto;
+  margin: 0 auto 20px auto;
   border: 4px solid #8d99ae;
-  border-radius: 8px;
   background-color: #edf2f4;
 }
 
@@ -61,24 +166,27 @@ p {
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  transition: background-color 0.2s;
 }
 
 .celda:hover {
-  background-color: #cccccc;
+  background-color: rgba(204, 204, 204, 0.5);
 }
 
 .pared {
   background-color: #2b2d42;
-  border: 1px solid #1e1e24;
-  cursor: not-allowed;
+}
+
+.lodo {
+  background-color: #9c6644;
 }
 
 .camino {
-  background-color: #ff9f1c;
+  background-color: rgba(255, 159, 28, 0.8) !important;
+  background-blend-mode: multiply;
   animation: aparecer 0.2s ease-out;
 }
 
+/* pixel rendering y escalado */
 .sprite {
   width: 90%;
   height: 90%;
@@ -115,42 +223,64 @@ p {
   }
 }
 
-.controles {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
+.panel-telemetria {
+  margin-top: 20px;
+  padding: 20px;
+  background: #1e1e24;
+  border: 2px solid #8d99ae;
+  text-align: left;
 }
 
-button {
-  background-color: #ef233c;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  font-size: 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: bold;
-  transition:
-    transform 0.1s,
-    background-color 0.2s;
+.panel-telemetria h3 {
+  color: #ff9f1c;
+  margin-bottom: 15px;
+  text-transform: uppercase;
 }
 
-button:hover:not(:disabled) {
-  background-color: #d90429;
-  transform: translateY(-2px);
+.metricas-grid p {
+  margin-bottom: 8px;
+  font-size: 1.1rem;
 }
 
-button:disabled {
-  background-color: #555;
-  color: #888;
-  cursor: wait;
-  transform: none;
+.metrica-destacada {
+  color: #e9c46a;
+  margin-top: 15px;
+  font-size: 1.2rem !important;
 }
 
-button.reset {
-  background-color: #8d99ae;
-}
+/* MEDIA QUERIES (Dispositivos moviles) */
+@media (max-width: 768px) {
+  body {
+    padding: 0;
+  }
 
-button.reset:hover {
-  background-color: #2b2d42;
+  .contenedor {
+    padding: 1rem;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+  }
+
+  button {
+    width: 100%;
+    margin-bottom: 5px;
+  }
+
+  .herramientas,
+  .niveles-panel,
+  .controles {
+    gap: 5px;
+  }
+
+  .instrucciones {
+    font-size: 0.85rem;
+  }
+
+  .metricas-grid p {
+    font-size: 0.95rem;
+  }
 }
