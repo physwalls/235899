@@ -1,92 +1,60 @@
+import random
 import time
 import tracemalloc
-import heapq
-import random
+from math import log2
+from main import resolver
 
-# calculamos la distancia manhattan entre dos puntos
-def distancia_manhattan(origen, destino):
-    return abs(origen[0] - destino[0]) + abs(origen[1] - destino[1])
-
-# el mero mero algoritmo a estrella
-def algoritmo_a_star(grid, inicio, meta):
-    filas = len(grid)
-    columnas = len(grid[0])
-    
-    open_set = []
-    # metemos el nodo inicial a la cola
-    heapq.heappush(open_set, (0, tuple(inicio)))
-    came_from = {}
-    g_score = {tuple(inicio): 0}
-    f_score = {tuple(inicio): distancia_manhattan(inicio, meta)}
-    
-    while open_set:
-        current = heapq.heappop(open_set)[1]
-        
-        # si ya llegamos a la meta nos salimos
-        if list(current) == meta:
-            return True 
-            
-        # checamos arriba, abajo, izq, der
-        vecinos = [(current[0]-1, current[1]), (current[0]+1, current[1]), 
-                   (current[0], current[1]-1), (current[0], current[1]+1)]
-        
-        for v in vecinos:
-            # validamos que no se salga del mapa y que no sea pared
-            if 0 <= v[0] < filas and 0 <= v[1] < columnas and grid[v[0]][v[1]] == 0:
-                tentative_g_score = g_score[current] + 1
-                
-                if v not in g_score or tentative_g_score < g_score[v]:
-                    came_from[v] = current
-                    g_score[v] = tentative_g_score
-                    f_score[v] = tentative_g_score + distancia_manhattan(v, meta)
-                    
-                    if not any(v == item[1] for item in open_set):
-                        heapq.heappush(open_set, (f_score[v], v))
-                        
-    # si no encontro ruta regresa false
-    return False
-
-# funcion pa generar los mapas random para las pruebas
-def generar_mapa(tamano):
-    grid = [[0 for _ in range(tamano)] for _ in range(tamano)]
-    for i in range(tamano):
-        for j in range(tamano):
-            # le metemos un 20% de probabilidad de que sea pared pa simular bloqueos
-            if random.random() < 0.2: 
+# mapas aleatorios: 20% paredes y 10% lodo; inicio, cafe (centro) y meta siempre libres
+def generar_mapa(t, semilla):
+    rnd = random.Random(semilla)
+    grid = [[0] * t for _ in range(t)]
+    for i in range(t):
+        for j in range(t):
+            x = rnd.random()
+            if x < 0.20:
                 grid[i][j] = 1
-                
-    # nos aseguramos que el inicio y la meta siempre esten libres pa que no truene
-    grid[0][0] = 0 
-    grid[tamano-1][tamano-1] = 0 
+            elif x < 0.30:
+                grid[i][j] = 2
+    c = t // 2
+    for (i, j) in [(0, 0), (c, c), (t - 1, t - 1)]:
+        grid[i][j] = 0
     return grid
 
-# los tamanios de matriz que voy a calar
-tamanos = [10, 50, 100, 500]
-print("Pruebas de Rendimiento A*\n")
-print(f"{'Mapa':<10} | {'Celdas (N)':<12} | {'Tiempo (ms)':<15} | {'Memoria (KB)':<15}")
-print("-" * 60)
+def mapa_con_solucion(t, semilla):
+    # se prueban semillas hasta que exista ruta completa (si no, la medicion no sirve)
+    while True:
+        g = generar_mapa(t, semilla)
+        c = t // 2
+        ruta, _ = resolver(g, [0, 0], [c, c], [t - 1, t - 1])
+        if ruta:
+            return g
+        semilla += 1000
 
-for t in tamanos:
-    mapa = generar_mapa(t)
-    inicio = [0, 0]
-    meta = [t-1, t-1]
-    
-    # empezamos a medir la ram
+TAMANOS = [10, 20, 50, 100, 200, 300, 500]
+REPETICIONES = 5
+
+print("Pruebas de rendimiento A* (inicio -> cafe -> meta)\n")
+print(f"{'Mapa':<9}{'V':>8}{'V log2 V':>12}{'Tiempo (ms)':>14}{'Expansiones':>14}{'Exp/V':>8}{'Memoria (KB)':>15}")
+print("-" * 80)
+
+for t in TAMANOS:
+    c = t // 2
+    tiempos, exps = [], []
+    for r in range(REPETICIONES):
+        g = mapa_con_solucion(t, semilla=t * 100 + r)
+        ini = time.perf_counter()
+        ruta, e = resolver(g, [0, 0], [c, c], [t - 1, t - 1])
+        fin = time.perf_counter()
+        tiempos.append((fin - ini) * 1000)
+        exps.append(e)
+    # la memoria se mide aparte porque tracemalloc hace mas lento el programa
+    g = mapa_con_solucion(t, semilla=t * 100)
     tracemalloc.start()
-    # empezamos a medir el tiempo
-    inicio_tiempo = time.perf_counter()
-    
-    # corremos el algoritmo
-    algoritmo_a_star(mapa, inicio, meta)
-    
-    # paramos el cronometro y sacamos lo de la memoria
-    fin_tiempo = time.perf_counter()
-    current, peak = tracemalloc.get_traced_memory()
+    resolver(g, [0, 0], [c, c], [t - 1, t - 1])
+    _, pico = tracemalloc.get_traced_memory()
     tracemalloc.stop()
-    
-    # calculamos los ms y los kb
-    tiempo_ms = (fin_tiempo - inicio_tiempo) * 1000
-    memoria_kb = peak / 1024
-    
-    # imprimimos los resultados para ponerlos en el reporte del iit
-    print(f"{t}x{t:<8} | {t*t:<12} | {tiempo_ms:<15.2f} | {memoria_kb:<15.2f}")
+
+    V = t * t
+    t_prom = sum(tiempos) / len(tiempos)
+    e_prom = sum(exps) / len(exps)
+    print(f"{t}x{t:<6}{V:>8}{V * log2(V):>12.0f}{t_prom:>14.2f}{e_prom:>14.0f}{e_prom / V:>8.2f}{pico / 1024:>15.1f}")

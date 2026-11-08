@@ -19,74 +19,70 @@ class DatosMapa(BaseModel):
     grid: list[list[int]]
     inicio: list[int]
     meta: list[int]
-    cafe: list[int] 
+    cafe: list[int]
 
 # distancia manhattan
 def distancia_manhattan(origen, destino):
     return abs(origen[0] - destino[0]) + abs(origen[1] - destino[1])
 
-# heuristica a*
+# a* con insercion perezosa: un nodo puede entrar varias veces al heap,
+# pero solo se expande la primera vez que sale (el resto se ignora)
 def algoritmo_a_star(grid, inicio, meta):
     filas = len(grid)
     columnas = len(grid[0])
-    
-    open_set = []
-    heapq.heappush(open_set, (0, tuple(inicio)))
+    inicio = tuple(inicio)
+    meta = tuple(meta)
+
+    open_set = [(distancia_manhattan(inicio, meta), inicio)]
     came_from = {}
-    g_score = {tuple(inicio): 0}
-    f_score = {tuple(inicio): distancia_manhattan(inicio, meta)}
-    
+    g_score = {inicio: 0}
+    cerrados = set()
+
     while open_set:
-        current = heapq.heappop(open_set)[1]
-        
-        if list(current) == meta:
-            ruta = []
+        _, current = heapq.heappop(open_set)
+        if current in cerrados:
+            continue  # copia vieja del nodo en el heap
+        cerrados.add(current)
+
+        if current == meta:
+            ruta = [list(current)]
             while current in came_from:
-                ruta.append(list(current))
                 current = came_from[current]
-            ruta.append(inicio)
-            return ruta[::-1]
-            
+                ruta.append(list(current))
+            return ruta[::-1], len(cerrados)
+
         vecinos = [
             (current[0] - 1, current[1]),
             (current[0] + 1, current[1]),
             (current[0], current[1] - 1),
-            (current[0], current[1] + 1) 
+            (current[0], current[1] + 1),
         ]
-        
         for v in vecinos:
             if 0 <= v[0] < filas and 0 <= v[1] < columnas:
-                if grid[v[0]][v[1]] == 1: # ignorar paredes
+                if grid[v[0]][v[1]] == 1:  # ignorar paredes
                     continue
-                    
                 # pesos del grafo ponderado
                 costo_movimiento = 5 if grid[v[0]][v[1]] == 2 else 1
-                tentative_g_score = g_score[current] + costo_movimiento
-                
-                if v not in g_score or tentative_g_score < g_score[v]:
+                tentative_g = g_score[current] + costo_movimiento
+                if v not in g_score or tentative_g < g_score[v]:
+                    g_score[v] = tentative_g
                     came_from[v] = current
-                    g_score[v] = tentative_g_score
-                    f_score[v] = tentative_g_score + distancia_manhattan(v, meta)
-                    
-                    if not any(v == item[1] for item in open_set):
-                        heapq.heappush(open_set, (f_score[v], v))
-                        
-    return []
+                    heapq.heappush(open_set, (tentative_g + distancia_manhattan(v, meta), v))
 
-# endpoint de enrutamiento multietapa
+    return [], len(cerrados)
+
+# enrutamiento multietapa: inicio -> cafe -> meta
+def resolver(grid, inicio, cafe, meta):
+    ruta_al_cafe, exp1 = algoritmo_a_star(grid, inicio, cafe)
+    if not ruta_al_cafe:
+        return [], exp1
+    ruta_a_la_meta, exp2 = algoritmo_a_star(grid, cafe, meta)
+    if not ruta_a_la_meta:
+        return [], exp1 + exp2
+    # union de sub-rutas eliminando el nodo duplicado
+    return ruta_al_cafe + ruta_a_la_meta[1:], exp1 + exp2
+
 @app.post("/calcular-ruta")
 def calcular_ruta(datos: DatosMapa):
-    # fase 1: sub-ruta inicial
-    ruta_al_cafe = algoritmo_a_star(datos.grid, datos.inicio, datos.cafe)
-    if not ruta_al_cafe:
-        return {"ruta": []}
-        
-    # fase 2: sub-ruta final
-    ruta_a_la_meta = algoritmo_a_star(datos.grid, datos.cafe, datos.meta)
-    if not ruta_a_la_meta:
-        return {"ruta": []} 
-        
-    # union de sub-rutas eliminando el nodo duplicado
-    ruta_completa = ruta_al_cafe + ruta_a_la_meta[1:]
-    
-    return {"ruta": ruta_completa}
+    ruta, expansiones = resolver(datos.grid, datos.inicio, datos.cafe, datos.meta)
+    return {"ruta": ruta, "expansiones": expansiones}
